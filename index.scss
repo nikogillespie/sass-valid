@@ -1,0 +1,365 @@
+@use 'sass:meta';
+@use 'sass:map';
+@use 'sass:list';
+@use 'sass-funcs/meta' as m;
+@use 'sass-funcs/list' as l;
+@use 'sass-funcs/string' as s;
+@use 'sass-error' as e;
+
+// CONFIG ──────────────────────────────────────────────────────────────────────
+
+// Value-entry allowed types
+$VALUE_ID_ALLOWED_TYPES: ('string', 'number', 'bool') !default;
+
+// Schema field identifiers
+$FIELD_REQUIRED: 'is-required' !default;
+$FIELD_ALLOWED_TYPES: 'allowed-types' !default;
+$FIELD_ALLOWED_VALUES: 'allowed-values' !default;
+$FIELD_VALIDATOR: 'validator' !default;
+
+// Error message settings
+$_ERROR_ORIGIN: 'function "validate"';
+$ERROR_HINT_TEXT: 'See schema for allowed values' !default;
+
+// Validation mode identifiers
+$_VALIDATION_PERMISSIVE: 'permissive'; // Extra fields allowed; only required fields enforced
+$_VALIDATION_RIGID: 'rigid'; // No extra fields allowed; only required fields enforced
+$_VALIDATION_STRICT: 'strict'; // No extra fields allowed; all fields required
+$_VALIDATION_MODES: (
+  $_VALIDATION_PERMISSIVE,
+  $_VALIDATION_RIGID,
+  $_VALIDATION_STRICT
+);
+
+// Default validation mode
+$VALIDATION_MODE_SELECTED: $_VALIDATION_RIGID !default;
+
+// Entry label identifiers
+$ERROR_LABEL_ENTRY: 'ENTRY' !default; // _ID variant → <id> substitution in error codes
+$ERROR_LABEL_FIELD: 'FIELD' !default;
+$ERROR_ENTRY_LABELS: ($ERROR_LABEL_ENTRY, $ERROR_LABEL_FIELD) !default;
+
+// Metaschema definition
+/* prettier-ignore */
+$_SCHEMA_META: (
+  $FIELD_REQUIRED: (
+    $FIELD_REQUIRED: false,
+    $FIELD_ALLOWED_TYPES: 'bool',
+  ),
+  $FIELD_ALLOWED_TYPES: (
+    $FIELD_REQUIRED: true,
+    $FIELD_ALLOWED_TYPES: ('string', 'list'),
+    $FIELD_ALLOWED_VALUES: ('number', 'string', 'list', 'bool', 'map'),
+  ),
+  $FIELD_ALLOWED_VALUES: (
+    $FIELD_REQUIRED: false,
+    $FIELD_ALLOWED_TYPES: ('number', 'string', 'list', 'bool', 'map'),
+  ),
+  $FIELD_VALIDATOR: (
+    $FIELD_REQUIRED: false,
+    $FIELD_ALLOWED_TYPES: 'string',
+  ),
+);
+
+$_ERROR_LOG: (); // Prevents redundant schema checks on repeated validate() calls
+
+// GUARDS ──────────────────────────────────────────────────────────────────────
+
+// Validate validation mode
+@if not l.includes($_VALIDATION_MODES, $VALIDATION_MODE_SELECTED) {
+  @error 'validate: #{meta.inspect($VALIDATION_MODE_SELECTED)} is not a valid validation mode.';
+}
+
+// PUBLIC API ──────────────────────────────────────────────────────────────────
+
+/// Validates an entity map against a schema definition
+/// @param {Map} $schema - Schema definition map
+/// @param {Map} $entity - Entity map to validate
+/// @param {String} $entity-type ['entity'] - Label used for the entity type in error messages
+/// @param {String} $entity-name ['unnamed'] - Label used for the entity name in error messages
+/// @param {String} $mode [$VALIDATION_MODE_SELECTED] - Validation mode: permissive, rigid, or strict
+/// @param {String} $custom-entry-label [$ERROR_LABEL_ENTRY] - Label used for entry-level error codes
+/// @param {String | Null} $schema-id [null] - Cache key override; use when the same entity-type maps to different schemas
+/// @param {Map} $custom-validators [()] - Map of validator name strings to Sass function references
+/// @return {Null | String} `null` on success, or an error string on failure
+@function validate(
+  $schema,
+  $entity,
+  $entity-type: 'entity',
+  $entity-name: 'unnamed',
+  $mode: $VALIDATION_MODE_SELECTED,
+  $custom-entry-label: $ERROR_LABEL_ENTRY,
+  $schema-id: null,
+  $custom-validators: ()
+) {
+  // Initialize error context
+  $origin: $_ERROR_ORIGIN;
+
+  // Validate inputs
+  @if m.type-of($schema) != 'map' {
+    @return '[ARGUMENT_SCHEMA_TYPE] Argument "$schema": Incorrect type "#{m.type-of($schema)}" → Expected: map [context: #{$origin}]';
+  } @else if m.type-of($entity) != 'map' {
+    @return '[ARGUMENT_ENTITY_TYPE] Argument "$entity": Incorrect type "#{m.type-of($entity)}" → Expected: map [context: #{$origin}]';
+  } @else if m.type-of($entity-type) != 'string' or m.is-empty($entity-type) {
+    @return '[ARGUMENT_ENTITY_TYPE_INVALID] Argument "$entity-type": Invalid value → Expected: non-empty string [context: #{$origin}]';
+  } @else if m.type-of($entity-name) != 'string' or m.is-empty($entity-name) {
+    @return '[ARGUMENT_ENTITY_NAME_INVALID] Argument "$entity-name": Invalid value → Expected: non-empty string [context: #{$origin}]';
+  } @else if not l.includes($_VALIDATION_MODES, $mode) {
+    @return '[ARGUMENT_MODE_VALUE] Argument "$mode": Invalid value "#{e.received($mode)}" → Allowed: #{e.expected($_VALIDATION_MODES)} [context: #{$origin}]';
+  } @else if not l.includes($ERROR_ENTRY_LABELS, $custom-entry-label) {
+    @return '[ARGUMENT_CUSTOM_ENTRY_LABEL_VALUE] Argument "$custom-entry-label": Invalid value "#{e.received($custom-entry-label)}" → Allowed: #{e.expected($ERROR_ENTRY_LABELS)} [context: #{$origin}]';
+  } @else if
+    $schema-id and
+    (m.type-of($schema-id) != 'string' or m.is-empty($schema-id))
+  {
+    @return '[ARGUMENT_SCHEMA_ID_INVALID] Argument "$schema-id": Invalid value → Expected: non-empty string [context: #{$origin}]';
+  } @else if m.type-of($custom-validators) != 'map' {
+    @return '[ARGUMENT_CUSTOM_VALIDATORS_TYPE] Argument "$custom-validators": Incorrect type "#{m.type-of($custom-validators)}" → Expected: map [context: #{$origin}]';
+  }
+
+  // Resolve cache key
+  // Cache key defaults to $entity-type but can be overridden via $schema-id.
+  // Use $schema-id when the same $entity-type is reused with a different $schema
+  // (e.g. validating a sub-schema in a different context) to avoid cache collisions.
+  $cache-key: $schema-id or $entity-type;
+  @if not map.has-key($_ERROR_LOG, $cache-key) {
+    $error: -validate-schema($schema, $entity-type, $mode) or false;
+    $_ERROR_LOG: map.set($_ERROR_LOG, $cache-key, $error) !global;
+  }
+
+  // Return schema error
+  $error: map.get($_ERROR_LOG, $cache-key);
+  @if $error {
+    @return $error;
+  }
+
+  // Validate entity attributes
+  @return -validate-entity(
+    $schema,
+    $entity,
+    $entity-type,
+    $entity-name,
+    $mode,
+    $custom-entry-label,
+    $custom-validators: $custom-validators
+  );
+}
+
+// INTERNAL ────────────────────────────────────────────────────────────────────
+
+// Validates entity attributes against schema
+@function -validate-entity(
+  $schema,
+  $entity,
+  $entity-type,
+  $entity-name,
+  $mode,
+  $custom-entry-label,
+  $outer-entity-type: null,
+  $path: (),
+  $custom-validators: ()
+) {
+  // Initialize error context
+  $origin: $_ERROR_ORIGIN;
+
+  // Format entity type
+  $entity-type-upp: s.upper-snake-case(#{$entity-type});
+  $entity-type-cap: s.capitalize(#{$entity-type});
+
+  // Validate attributes
+  @each $attribute, $attribute-rules in $schema {
+    // Format error code
+    $attribute-upp: s.upper-snake-case(#{$attribute});
+    $code-base: '#{$entity-type-upp}_#{$attribute-upp}';
+    $current-path: l.push($path, $attribute); // Extend path
+
+    // Extract rule values
+    $is-required: map.get($attribute-rules, $FIELD_REQUIRED);
+    $allowed-types: map.get($attribute-rules, $FIELD_ALLOWED_TYPES);
+    $allowed-values: map.get($attribute-rules, $FIELD_ALLOWED_VALUES);
+    $validator: map.get($attribute-rules, $FIELD_VALIDATOR);
+
+    // Check attribute presence
+    $entity-has-attribute: map.has-key($entity, $attribute);
+
+    // Override required flag
+    @if $mode == $_VALIDATION_STRICT {
+      $is-required: true;
+    }
+
+    // Guard missing required attribute
+    @if $is-required and not $entity-has-attribute {
+      @return '[#{$code-base}_MISSING] #{$entity-type-cap} "#{$entity-name}"#{e.path($path)}: Missing attribute "#{$attribute}" → Include "#{$attribute}" with value type: #{e.expected($allowed-types)}';
+    }
+
+    // Validate attribute value
+    @else if $entity-has-attribute {
+      $attribute-value: map.get($entity, $attribute);
+      $is-valid-type: m.is-type($attribute-value, $allowed-types);
+      $is-empty-value: m.is-empty($attribute-value) and
+        m.is-type($attribute-value, ('string', 'list'));
+
+      // Validate type and emptiness
+      @if not $is-valid-type {
+        @return '[#{$code-base}_TYPE] #{$entity-type-cap} "#{$entity-name}"#{e.path($current-path)}: Incorrect type "#{m.type-of($attribute-value)}" → Expected: #{e.expected($allowed-types)}';
+      } @else if $is-empty-value {
+        @return '[#{$code-base}_EMPTY] #{$entity-type-cap} "#{$entity-name}"#{e.path($current-path)}: Empty value → Expected: non-empty #{e.expected($allowed-types)}';
+      } @else {
+        // Run validator
+        @if $validator {
+          @if map.has-key($custom-validators, $validator) {
+            $error: meta.call(
+              map.get($custom-validators, $validator),
+              $entity,
+              $attribute,
+              $attribute-rules,
+              $code-base,
+              $entity-type-cap,
+              $entity-name,
+              $current-path,
+              $custom-entry-label
+            );
+            @if $error {
+              @return $error;
+            }
+          } @else {
+            $path: l.push($current-path, $FIELD_VALIDATOR);
+            @return '[SCHEMA_VALIDATOR_UNRESOLVED] Schema "#{$entity-type}"#{e.path($path)}: Unresolved function "#{$validator}" → Pass "#{$validator}" via $custom-validators or remove it from the schema [context: #{$origin}]';
+          }
+        }
+
+        // Validate allowed values
+        @if not m.is-empty($allowed-values) {
+          // Recurse into nested schema
+          @if (m.type-of($allowed-values) == 'map') and
+            (m.type-of($attribute-value) == 'map')
+          {
+            $nested-error: -validate-entity(
+              $schema: $allowed-values,
+              $entity: $attribute-value,
+              $entity-type: $entity-type,
+              $entity-name: $entity-name,
+              $mode: $mode,
+              $custom-entry-label: $custom-entry-label,
+              $outer-entity-type: $outer-entity-type,
+              $path: $current-path,
+              $custom-validators: $custom-validators,
+            );
+            @if $nested-error {
+              @return $nested-error;
+            }
+          }
+          // Validate flat allowed values
+          @else {
+            @if m.type-of($allowed-values) == 'list' {
+              $allowed-values: l.flat($allowed-values);
+            }
+
+            // Resolve options hint
+            $is-truncated: list.length($allowed-values) > e.$EXPECTED_LIMIT;
+            $options-extra: $is-truncated and $ERROR_HINT_TEXT or null;
+
+            @each $element in $attribute-value {
+              @if not l.includes($allowed-values, $element) {
+                @return '[#{$code-base}_VALUE] #{$entity-type-cap} "#{$entity-name}"#{e.path($current-path)}: Invalid value "#{e.received($element)}" → Allowed: #{e.expected($allowed-values, $options-extra)}';
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Validate extra attributes
+  @if l.includes(($_VALIDATION_RIGID, $_VALIDATION_STRICT), $mode) {
+    // Format error code
+    $code-base: '#{$entity-type-upp}';
+    $entity-name: $outer-entity-type or
+      $entity-name; // Use parent type label for extra-attribute errors
+
+    @each $attribute, $_ in $entity {
+      // Validate unknown attributes
+      @if not map.has-key($schema, $attribute) {
+        $current-path: l.push($path, $attribute);
+        // Format error code
+        @if list.length($current-path) > 1 {
+          $parent-candidate: list.nth($current-path, -2);
+          $parent-upp: s.upper-snake-case(#{$parent-candidate});
+          $code-base: '#{$entity-type-upp}_#{$parent-upp}';
+        }
+
+        // Report unknown attribute
+        @if not m.is-type($attribute, $VALUE_ID_ALLOWED_TYPES) {
+          @return '[#{$code-base}_#{$custom-entry-label}_ID_TYPE] #{$entity-type-cap} "#{$entity-name}"#{e.path($current-path, true)}: Incorrect type "#{m.type-of($attribute)}" → Expected: #{e.expected($VALUE_ID_ALLOWED_TYPES)} [context: mode "#{$mode}"]';
+        } @else if m.is-empty($attribute) {
+          @return '[#{$code-base}_#{$custom-entry-label}_ID_EMPTY] #{$entity-type-cap} "#{$entity-name}"#{e.path($current-path, true)}: Empty value → Expected: non-empty #{e.expected($VALUE_ID_ALLOWED_TYPES)} [context: mode "#{$mode}"]';
+        } @else {
+          $code-base: '#{$entity-type-upp}_#{s.upper-snake-case(#{$attribute})}';
+          @return '[#{$code-base}_UNKNOWN] #{$entity-type-cap} "#{$entity-name}"#{e.path($path)}: Unknown attribute "#{$attribute}" → Remove "#{$attribute}" [context: mode "#{$mode}"]';
+        }
+      }
+    }
+  }
+
+  // Return success
+  @return null;
+}
+
+// Validates schema structure against metaschema
+@function -validate-schema(
+  $schema,
+  $entity-type,
+  $mode,
+  $custom-entry-label: $ERROR_LABEL_FIELD,
+  $path: ()
+) {
+  // Initialize error context
+  $origin: $_ERROR_ORIGIN;
+
+  // Validate schema fields
+  @each $schema-field, $schema-rules in $schema {
+    $current-path: l.push($path, $schema-field);
+
+    // Guard schema field
+    @if not m.is-type($schema-field, $VALUE_ID_ALLOWED_TYPES) {
+      @return '[SCHEMA_#{$custom-entry-label}_ID_TYPE] Schema "#{$entity-type}"#{e.path($current-path, true)}: Incorrect type "#{m.type-of($schema-field)}" → Expected: #{e.expected($VALUE_ID_ALLOWED_TYPES)} [context: #{$origin}]';
+    } @else if m.is-empty($schema-field) {
+      @return '[SCHEMA_#{$custom-entry-label}_ID_EMPTY] Schema "#{$entity-type}"#{e.path($current-path, true)}: Empty value → Expected: non-empty #{e.expected($VALUE_ID_ALLOWED_TYPES)} [context: #{$origin}]';
+    } @else if m.type-of($schema-rules) != 'map' {
+      @return '[SCHEMA_#{s.upper-snake-case(#{$schema-field})}_TYPE] Schema "#{$entity-type}"#{e.path($current-path)}: Incorrect type "#{m.type-of($schema-rules)}" → Expected: map [context: #{$origin}]';
+    }
+
+    // Validate field rules
+    $error: -validate-entity(
+      $schema: $_SCHEMA_META,
+      $entity: $schema-rules,
+      $entity-type: 'Schema',
+      $entity-name: #{$schema-field},
+      $mode: $_VALIDATION_RIGID,
+      $custom-entry-label: $custom-entry-label,
+      $outer-entity-type: $entity-type,
+      $path: $current-path,
+    );
+    @if $error {
+      @return $error;
+    }
+
+    // Recurse into nested schema
+    $allowed-values: map.get($schema-rules, $FIELD_ALLOWED_VALUES);
+    @if m.type-of($allowed-values) == 'map' {
+      $nested-error: -validate-schema(
+        $schema: $allowed-values,
+        $entity-type: $entity-type,
+        $mode: $_VALIDATION_RIGID,
+        $custom-entry-label: $custom-entry-label,
+        $path: $current-path,
+      );
+      @if $nested-error {
+        @return $nested-error;
+      }
+    }
+  }
+
+  // Return success
+  @return null;
+}

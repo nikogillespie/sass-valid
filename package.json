@@ -1,0 +1,43 @@
+{
+  "name": "sass-valid",
+  "version": "1.0.0",
+  "description": "Sass schema-driven validation — per the Error Message Specification",
+  "keywords": [
+    "sass",
+    "scss",
+    "validation",
+    "validator",
+    "type-checking",
+    "schema",
+    "utilities"
+  ],
+  "homepage": "https://github.com/nicholasgillespie/sass-valid#readme",
+  "license": "MIT",
+  "author": "Nicholas Gillespie (https://github.com/nicholasgillespie)",
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/nicholasgillespie"
+  },
+  "files": [
+    "index.scss",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nicholasgillespie/sass-valid.git"
+  },
+  "peerDependencies": {
+    "sass-funcs": ">=1.0.0",
+    "sass-error": ">=2.0.0",
+    "sass": ">=1.33.0",
+    "sass-embedded": ">=1.33.0"
+  },
+  "peerDependenciesMeta": {
+    "sass": {
+      "optional": true
+    },
+    "sass-embedded": {
+      "optional": true
+    }
+  }
+}
