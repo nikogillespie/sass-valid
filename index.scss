@@ -61,7 +61,9 @@ $_SCHEMA_META: (
   ),
 );
 
-$_ERROR_LOG: (); // Prevents redundant schema checks on repeated validate() calls
+$_ERROR_LOG: (
+
+); // Prevents redundant schema checks on repeated validate() calls
 
 // GUARDS ──────────────────────────────────────────────────────────────────────
 
@@ -80,7 +82,7 @@ $_ERROR_LOG: (); // Prevents redundant schema checks on repeated validate() call
 /// @param {String} $mode [$VALIDATION_MODE_SELECTED] - Validation mode: permissive, rigid, or strict
 /// @param {String} $custom-entry-label [$ERROR_LABEL_ENTRY] - Label used for entry-level error codes
 /// @param {String | Null} $schema-id [null] - Cache key override; use when the same entity-type maps to different schemas
-/// @param {Map} $custom-validators [()] - Map of validator name strings to Sass function references
+/// @param {Map | Null} $custom-validators [null] - Map of validator name strings to Sass function references
 /// @return {Null | String} `null` on success, or an error string on failure
 @function validate(
   $schema,
@@ -90,7 +92,7 @@ $_ERROR_LOG: (); // Prevents redundant schema checks on repeated validate() call
   $mode: $VALIDATION_MODE_SELECTED,
   $custom-entry-label: $ERROR_LABEL_ENTRY,
   $schema-id: null,
-  $custom-validators: ()
+  $custom-validators: null
 ) {
   // Initialize error context
   $origin: $_ERROR_ORIGIN;
@@ -113,9 +115,12 @@ $_ERROR_LOG: (); // Prevents redundant schema checks on repeated validate() call
     (m.type-of($schema-id) != 'string' or m.is-empty($schema-id))
   {
     @return '[ARGUMENT_SCHEMA_ID_INVALID] Argument "$schema-id": Invalid value → Expected: non-empty string [context: #{$origin}]';
-  } @else if m.type-of($custom-validators) != 'map' {
+  } @else if $custom-validators and m.type-of($custom-validators) != 'map' {
     @return '[ARGUMENT_CUSTOM_VALIDATORS_TYPE] Argument "$custom-validators": Incorrect type "#{m.type-of($custom-validators)}" → Expected: map [context: #{$origin}]';
   }
+
+  // Normalize null to empty map for safe downstream validation
+  $custom-validators: $custom-validators or ();
 
   // Resolve cache key
   // Cache key defaults to $entity-type but can be overridden via $schema-id.
