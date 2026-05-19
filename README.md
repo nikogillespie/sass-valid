@@ -67,7 +67,7 @@ Validates an entity map against a schema. The schema is checked against a built-
 | `$mode`               | `String`         | `$VALIDATION_MODE_SELECTED` | Validation mode: `'permissive'`, `'rigid'`, or `'strict'`                      |
 | `$custom-entry-label` | `String`         | `$ERROR_LABEL_ENTRY`        | Label for entry-level error codes: `'ENTRY'` or `'FIELD'`                      |
 | `$schema-id`          | `String \| Null` | `null`                      | Cache key override; use when the same `$entity-type` maps to different schemas |
-| `$custom-validators`  | `Map`            | `()`                        | Map of validator name strings to Sass function references                      |
+| `$validators`  | `Map`            | `()`                        | Map of validator name strings to Sass function references                      |
 
 **Returns** `Null` on success, `String` error message on failure (see [Error Message Specification](https://github.com/nicholasgillespie/sass-error-spec)) — pass to `@error` to raise.
 
@@ -123,7 +123,7 @@ $schema: (
 | `'is-required'`    | `Bool`           | No       | Whether the attribute must be present. Always `true` in `'strict'` mode.                                                                                            |
 | `'allowed-types'`  | `String \| List` | Yes      | One or more Sass type names: `'number'`, `'string'`, `'list'`, `'bool'`, `'map'`                                                                                    |
 | `'allowed-values'` | `* \| Map`       | No       | Allowed values as a flat list, or a nested schema map when the attribute type is `'map'`. When a list, each element of the attribute value is checked individually. |
-| `'validator'`      | `String`         | No       | Name key matching an entry in `$custom-validators`                                                                                                                  |
+| `'validator'`      | `String`         | No       | Name key matching an entry in `$validators`                                                                                                                  |
 
 ### Nested Schemas
 
@@ -172,7 +172,7 @@ v.validate($schema, $entity, 'person', 'Alice', $mode: 'strict')      // all fie
 
 A custom validator is a Sass function that performs checks on an attribute value beyond type and `'allowed-values'` validation. It is called after both pass and must return `null` on success or an error string on failure.
 
-Register validators by passing a map of name strings to Sass function references via `$custom-validators`. A validator name present in a schema but absent from this map triggers an "unresolved function" error at runtime.
+Register validators by passing a map of name strings to Sass function references via `$validators`. A validator name present in a schema but absent from this map triggers an "unresolved function" error at runtime.
 
 Custom validator functions receive these positional arguments:
 
@@ -208,12 +208,19 @@ $schema: (
 
 $validators: ('positive-number': meta.get-function('-positive-number'));
 
-v.validate($schema, ('count': 5),  'item', 'box', $custom-validators: $validators)
+v.validate($schema, ('count': 5),  'item', 'box', $validators: $validators)
 // → null
 
-v.validate($schema, ('count': -1), 'item', 'box', $custom-validators: $validators)
+v.validate($schema, ('count': -1), 'item', 'box', $validators: $validators)
 // → '[ITEM_COUNT_VALUE] Item "box" @ count: Invalid value "-1" → Expected: positive number'
 ```
+
+## Migration
+
+### v1 → v2
+
+- `$custom-validators` renamed to `$validators`
+- `ARGUMENT_CUSTOM_VALIDATORS_TYPE` renamed to `ARGUMENT_VALIDATORS_TYPE`
 
 ---
 

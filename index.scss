@@ -82,7 +82,7 @@ $_ERROR_LOG: (
 /// @param {String} $mode [$VALIDATION_MODE_SELECTED] - Validation mode: permissive, rigid, or strict
 /// @param {String} $custom-entry-label [$ERROR_LABEL_ENTRY] - Label used for entry-level error codes
 /// @param {String | Null} $schema-id [null] - Cache key override; use when the same entity-type maps to different schemas
-/// @param {Map | Null} $custom-validators [null] - Map of validator name strings to Sass function references
+/// @param {Map | Null} $validators [null] - Map of validator name strings to Sass function references
 /// @return {Null | String} `null` on success, or an error string on failure
 @function validate(
   $schema,
@@ -92,7 +92,7 @@ $_ERROR_LOG: (
   $mode: $VALIDATION_MODE_SELECTED,
   $custom-entry-label: $ERROR_LABEL_ENTRY,
   $schema-id: null,
-  $custom-validators: null
+  $validators: null
 ) {
   // Initialize error context
   $origin: $_ERROR_ORIGIN;
@@ -115,12 +115,12 @@ $_ERROR_LOG: (
     (m.type-of($schema-id) != 'string' or m.is-empty($schema-id))
   {
     @return '[ARGUMENT_SCHEMA_ID_INVALID] Argument "$schema-id": Invalid value → Expected: non-empty string [context: #{$origin}]';
-  } @else if $custom-validators and m.type-of($custom-validators) != 'map' {
-    @return '[ARGUMENT_CUSTOM_VALIDATORS_TYPE] Argument "$custom-validators": Incorrect type "#{m.type-of($custom-validators)}" → Expected: map [context: #{$origin}]';
+  } @else if $validators and m.type-of($validators) != 'map' {
+    @return '[ARGUMENT_VALIDATORS_TYPE] Argument "$validators": Incorrect type "#{m.type-of($validators)}" → Expected: map [context: #{$origin}]';
   }
 
   // Normalize null to empty map for safe downstream validation
-  $custom-validators: $custom-validators or ();
+  $validators: $validators or ();
 
   // Resolve cache key
   // Cache key defaults to $entity-type but can be overridden via $schema-id.
@@ -146,7 +146,7 @@ $_ERROR_LOG: (
     $entity-name,
     $mode,
     $custom-entry-label,
-    $custom-validators: $custom-validators
+    $validators: $validators
   );
 }
 
@@ -162,7 +162,7 @@ $_ERROR_LOG: (
   $custom-entry-label,
   $outer-entity-type: null,
   $path: (),
-  $custom-validators: ()
+  $validators: ()
 ) {
   // Initialize error context
   $origin: $_ERROR_ORIGIN;
@@ -212,9 +212,9 @@ $_ERROR_LOG: (
       } @else {
         // Run validator
         @if $validator {
-          @if map.has-key($custom-validators, $validator) {
+          @if map.has-key($validators, $validator) {
             $error: meta.call(
-              map.get($custom-validators, $validator),
+              map.get($validators, $validator),
               $entity,
               $attribute,
               $attribute-rules,
@@ -229,7 +229,7 @@ $_ERROR_LOG: (
             }
           } @else {
             $path: l.push($current-path, $FIELD_VALIDATOR);
-            @return '[SCHEMA_VALIDATOR_UNRESOLVED] Schema "#{$entity-type}"#{e.path($path)}: Unresolved function "#{$validator}" → Pass "#{$validator}" via $custom-validators or remove it from the schema [context: #{$origin}]';
+            @return '[SCHEMA_VALIDATOR_UNRESOLVED] Schema "#{$entity-type}"#{e.path($path)}: Unresolved function "#{$validator}" → Register "#{$validator}" as a validator, or remove it from the schema [context: #{$origin}]';
           }
         }
 
@@ -248,7 +248,7 @@ $_ERROR_LOG: (
               $custom-entry-label: $custom-entry-label,
               $outer-entity-type: $outer-entity-type,
               $path: $current-path,
-              $custom-validators: $custom-validators,
+              $validators: $validators,
             );
             @if $nested-error {
               @return $nested-error;
