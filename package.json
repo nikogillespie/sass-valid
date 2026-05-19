@@ -1,6 +1,6 @@
 {
   "name": "sass-valid",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "Sass schema-driven validation — per the Error Message Specification",
   "keywords": [
     "sass",
