@@ -7,7 +7,7 @@ Sass schema-driven validation — per the [Error Message Specification](https://
 ## Installation
 
 ```sh
-npm install --save-dev sass-valid sass-funcs sass-error
+npm install sass-valid sass-funcs sass-error
 ```
 
 > Requires [`sass`](https://www.npmjs.com/package/sass) or [`sass-embedded`](https://www.npmjs.com/package/sass-embedded) `>= 1.33.0` — install one, not both (`sass-embedded` recommended). Also requires [`sass-funcs`](https://www.npmjs.com/package/sass-funcs) and [`sass-error`](https://www.npmjs.com/package/sass-error).
