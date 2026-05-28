@@ -1,13 +1,13 @@
 # sass-valid
 
-Sass schema-driven validation — per the [Error Message Specification](https://github.com/nicholasgillespie/sass-error-spec).
+Sass schema-driven validation — per the [Error Message Specification](https://github.com/nikogillespie/sass-error-spec).
 
 ---
 
 ## Installation
 
 ```sh
-npm install sass-valid sass-funcs sass-error
+npm install --save-dev sass-valid sass-funcs sass-error
 ```
 
 > Requires [`sass`](https://www.npmjs.com/package/sass) or [`sass-embedded`](https://www.npmjs.com/package/sass-embedded) `>= 1.33.0` — install one, not both (`sass-embedded` recommended). Also requires [`sass-funcs`](https://www.npmjs.com/package/sass-funcs) and [`sass-error`](https://www.npmjs.com/package/sass-error).
@@ -38,7 +38,7 @@ All constants are configurable via `@use ... with (...)`:
 | `$ERROR_ENTRY_LABELS`       | `('ENTRY', 'FIELD')`              | Allowed values for `$custom-entry-label`                           |
 | `$VALIDATION_MODE_SELECTED` | `'rigid'`                         | Default validation mode                                            |
 
-> **Note:** See the **[Error Message Specification](https://github.com/nicholasgillespie/sass-error-spec)** for details on how error codes and labels are structured.
+> **Note:** See the **[Error Message Specification](https://github.com/nikogillespie/sass-error-spec)** for details on how error codes and labels are structured.
 
 ---
 
@@ -67,9 +67,9 @@ Validates an entity map against a schema. The schema is checked against a built-
 | `$mode`               | `String`         | `$VALIDATION_MODE_SELECTED` | Validation mode: `'permissive'`, `'rigid'`, or `'strict'`                      |
 | `$custom-entry-label` | `String`         | `$ERROR_LABEL_ENTRY`        | Label for entry-level error codes: `'ENTRY'` or `'FIELD'`                      |
 | `$schema-id`          | `String \| Null` | `null`                      | Cache key override; use when the same `$entity-type` maps to different schemas |
-| `$validators`  | `Map`            | `()`                        | Map of validator name strings to Sass function references                      |
+| `$validators`         | `Map`            | `()`                        | Map of validator name strings to Sass function references                      |
 
-**Returns** `Null` on success, `String` error message on failure (see [Error Message Specification](https://github.com/nicholasgillespie/sass-error-spec)) — pass to `@error` to raise.
+**Returns** `Null` on success, `String` error message on failure (see [Error Message Specification](https://github.com/nikogillespie/sass-error-spec)) — pass to `@error` to raise.
 
 ```scss
 $schema: (
@@ -123,7 +123,7 @@ $schema: (
 | `'is-required'`    | `Bool`           | No       | Whether the attribute must be present. Always `true` in `'strict'` mode.                                                                                            |
 | `'allowed-types'`  | `String \| List` | Yes      | One or more Sass type names: `'number'`, `'string'`, `'list'`, `'bool'`, `'map'`                                                                                    |
 | `'allowed-values'` | `* \| Map`       | No       | Allowed values as a flat list, or a nested schema map when the attribute type is `'map'`. When a list, each element of the attribute value is checked individually. |
-| `'validator'`      | `String`         | No       | Name key matching an entry in `$validators`                                                                                                                  |
+| `'validator'`      | `String`         | No       | Name key matching an entry in `$validators`                                                                                                                         |
 
 ### Nested Schemas
 
@@ -214,6 +214,8 @@ v.validate($schema, ('count': 5),  'item', 'box', $validators: $validators)
 v.validate($schema, ('count': -1), 'item', 'box', $validators: $validators)
 // → '[ITEM_COUNT_VALUE] Item "box" @ count: Invalid value "-1" → Expected: positive number'
 ```
+
+---
 
 ## Migration
 

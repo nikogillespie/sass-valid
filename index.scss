@@ -61,9 +61,8 @@ $_SCHEMA_META: (
   ),
 );
 
-$_ERROR_LOG: (
-
-); // Prevents redundant schema checks on repeated validate() calls
+// Cache schema results to prevent redundant checks on repeated validate() calls
+$_ERROR_LOG: ();
 
 // GUARDS ──────────────────────────────────────────────────────────────────────
 

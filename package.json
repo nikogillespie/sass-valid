@@ -11,12 +11,12 @@
     "schema",
     "utilities"
   ],
-  "homepage": "https://github.com/nicholasgillespie/sass-valid#readme",
+  "homepage": "https://github.com/nikogillespie/sass-valid#readme",
   "license": "MIT",
-  "author": "Nicholas Gillespie (https://github.com/nicholasgillespie)",
+  "author": "Niko Gillespie (https://github.com/nikogillespie)",
   "funding": {
     "type": "github",
-    "url": "https://github.com/sponsors/nicholasgillespie"
+    "url": "https://github.com/sponsors/nikogillespie"
   },
   "files": [
     "index.scss",
@@ -24,7 +24,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nicholasgillespie/sass-valid.git"
+    "url": "git+https://github.com/nikogillespie/sass-valid.git"
   },
   "peerDependencies": {
     "sass-funcs": ">=1.0.0",
