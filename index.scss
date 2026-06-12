@@ -6,7 +6,7 @@
 @use 'sass-funcs/string' as s;
 @use 'sass-error' as e;
 
-// CONFIG ──────────────────────────────────────────────────────────────────────
+// CONFIG ──────────────────────────────────────────────────
 
 // Value-entry allowed types
 $VALUE_ID_ALLOWED_TYPES: ('string', 'number', 'bool') !default;
@@ -40,7 +40,7 @@ $ERROR_LABEL_FIELD: 'FIELD' !default;
 $ERROR_ENTRY_LABELS: ($ERROR_LABEL_ENTRY, $ERROR_LABEL_FIELD) !default;
 
 // Metaschema definition
-/* prettier-ignore */
+// prettier-ignore
 $_SCHEMA_META: (
   $FIELD_REQUIRED: (
     $FIELD_REQUIRED: false,
@@ -61,26 +61,26 @@ $_SCHEMA_META: (
   ),
 );
 
-// Cache schema results to prevent redundant checks on repeated validate() calls
+// Cache schema results across repeated validate() calls
 $_ERROR_LOG: ();
 
-// GUARDS ──────────────────────────────────────────────────────────────────────
+// GUARDS ──────────────────────────────────────────────────
 
-// Validate validation mode
+// Guard validation mode
 @if not l.includes($_VALIDATION_MODES, $VALIDATION_MODE_SELECTED) {
   @error 'validate: #{meta.inspect($VALIDATION_MODE_SELECTED)} is not a valid validation mode.';
 }
 
-// PUBLIC API ──────────────────────────────────────────────────────────────────
+// PUBLIC API ──────────────────────────────────────────────
 
-/// Validates an entity map against a schema definition
+/// Validate the $entity map against $schema
 /// @param {Map} $schema - Schema definition map
 /// @param {Map} $entity - Entity map to validate
-/// @param {String} $entity-type ['entity'] - Label used for the entity type in error messages
-/// @param {String} $entity-name ['unnamed'] - Label used for the entity name in error messages
+/// @param {String} $entity-type ['entity'] - Entity type label in error messages
+/// @param {String} $entity-name ['unnamed'] - Entity name label in error messages
 /// @param {String} $mode [$VALIDATION_MODE_SELECTED] - Validation mode: permissive, rigid, or strict
-/// @param {String} $custom-entry-label [$ERROR_LABEL_ENTRY] - Label used for entry-level error codes
-/// @param {String | Null} $schema-id [null] - Cache key override; use when the same entity-type maps to different schemas
+/// @param {String} $custom-entry-label [$ERROR_LABEL_ENTRY] - Entry label in error codes
+/// @param {String | Null} $schema-id [null] - Cache key override; use when the same $entity-type maps to different schemas
 /// @param {Map | Null} $validators [null] - Map of validator name strings to Sass function references
 /// @return {Null | String} `null` on success, or an error string on failure
 @function validate(
@@ -93,7 +93,6 @@ $_ERROR_LOG: ();
   $schema-id: null,
   $validators: null
 ) {
-  // Initialize error context
   $origin: $_ERROR_ORIGIN;
 
   // Validate inputs
@@ -118,20 +117,17 @@ $_ERROR_LOG: ();
     @return '[ARGUMENT_VALIDATORS_TYPE] Argument "$validators": Incorrect type "#{m.type-of($validators)}" → Expected: map [context: #{$origin}]';
   }
 
-  // Normalize null to empty map for safe downstream validation
+  // Normalize null validators to empty map
   $validators: $validators or ();
 
-  // Resolve cache key
-  // Cache key defaults to $entity-type but can be overridden via $schema-id.
-  // Use $schema-id when the same $entity-type is reused with a different $schema
-  // (e.g. validating a sub-schema in a different context) to avoid cache collisions.
+  // Resolve cache key — $schema-id overrides $entity-type
+  // to avoid collisions when one type maps to many schemas
   $cache-key: $schema-id or $entity-type;
   @if not map.has-key($_ERROR_LOG, $cache-key) {
     $error: -validate-schema($schema, $entity-type, $mode) or false;
     $_ERROR_LOG: map.set($_ERROR_LOG, $cache-key, $error) !global;
   }
 
-  // Return schema error
   $error: map.get($_ERROR_LOG, $cache-key);
   @if $error {
     @return $error;
@@ -149,9 +145,9 @@ $_ERROR_LOG: ();
   );
 }
 
-// INTERNAL ────────────────────────────────────────────────────────────────────
+// PRIVATE ─────────────────────────────────────────────────
 
-// Validates entity attributes against schema
+// Validate entity attributes against schema
 @function -validate-entity(
   $schema,
   $entity,
@@ -163,19 +159,11 @@ $_ERROR_LOG: ();
   $path: (),
   $validators: ()
 ) {
-  // Initialize error context
   $origin: $_ERROR_ORIGIN;
-
-  // Format entity type
-  $entity-type-upp: s.upper-snake-case(#{$entity-type});
-  $entity-type-cap: s.capitalize(#{$entity-type});
 
   // Validate attributes
   @each $attribute, $attribute-rules in $schema {
-    // Format error code
-    $attribute-upp: s.upper-snake-case(#{$attribute});
-    $code-base: '#{$entity-type-upp}_#{$attribute-upp}';
-    $current-path: l.push($path, $attribute); // Extend path
+    $current-path: l.push($path, $attribute);
 
     // Extract rule values
     $is-required: map.get($attribute-rules, $FIELD_REQUIRED);
@@ -183,17 +171,16 @@ $_ERROR_LOG: ();
     $allowed-values: map.get($attribute-rules, $FIELD_ALLOWED_VALUES);
     $validator: map.get($attribute-rules, $FIELD_VALIDATOR);
 
-    // Check attribute presence
     $entity-has-attribute: map.has-key($entity, $attribute);
 
-    // Override required flag
     @if $mode == $_VALIDATION_STRICT {
       $is-required: true;
     }
 
     // Guard missing required attribute
     @if $is-required and not $entity-has-attribute {
-      @return '[#{$code-base}_MISSING] #{$entity-type-cap} "#{$entity-name}"#{e.path($path)}: Missing attribute "#{$attribute}" → Include "#{$attribute}" with value type: #{e.expected($allowed-types)}';
+      $code-base: '#{s.upper-snake-case(#{$entity-type})}_#{s.upper-snake-case(#{$attribute})}';
+      @return '[#{$code-base}_MISSING] #{s.capitalize(#{$entity-type})} "#{$entity-name}"#{e.path($path)}: Missing attribute "#{$attribute}" → Include "#{$attribute}" with value type: #{e.expected($allowed-types)}';
     }
 
     // Validate attribute value
@@ -205,9 +192,11 @@ $_ERROR_LOG: ();
 
       // Validate type and emptiness
       @if not $is-valid-type {
-        @return '[#{$code-base}_TYPE] #{$entity-type-cap} "#{$entity-name}"#{e.path($current-path)}: Incorrect type "#{m.type-of($attribute-value)}" → Expected: #{e.expected($allowed-types)}';
+        $code-base: '#{s.upper-snake-case(#{$entity-type})}_#{s.upper-snake-case(#{$attribute})}';
+        @return '[#{$code-base}_TYPE] #{s.capitalize(#{$entity-type})} "#{$entity-name}"#{e.path($current-path)}: Incorrect type "#{m.type-of($attribute-value)}" → Expected: #{e.expected($allowed-types)}';
       } @else if $is-empty-value {
-        @return '[#{$code-base}_EMPTY] #{$entity-type-cap} "#{$entity-name}"#{e.path($current-path)}: Empty value → Expected: non-empty #{e.expected($allowed-types)}';
+        $code-base: '#{s.upper-snake-case(#{$entity-type})}_#{s.upper-snake-case(#{$attribute})}';
+        @return '[#{$code-base}_EMPTY] #{s.capitalize(#{$entity-type})} "#{$entity-name}"#{e.path($current-path)}: Empty value → Expected: non-empty #{e.expected($allowed-types)}';
       } @else {
         // Run validator
         @if $validator {
@@ -217,8 +206,8 @@ $_ERROR_LOG: ();
               $entity,
               $attribute,
               $attribute-rules,
-              $code-base,
-              $entity-type-cap,
+              '#{s.upper-snake-case(#{$entity-type})}_#{s.upper-snake-case(#{$attribute})}',
+              s.capitalize(#{$entity-type}),
               $entity-name,
               $current-path,
               $custom-entry-label
@@ -259,13 +248,13 @@ $_ERROR_LOG: ();
               $allowed-values: l.flat($allowed-values);
             }
 
-            // Resolve options hint
-            $is-truncated: list.length($allowed-values) > e.$EXPECTED_LIMIT;
-            $options-extra: $is-truncated and $ERROR_HINT_TEXT or null;
-
             @each $element in $attribute-value {
               @if not l.includes($allowed-values, $element) {
-                @return '[#{$code-base}_VALUE] #{$entity-type-cap} "#{$entity-name}"#{e.path($current-path)}: Invalid value "#{e.received($element)}" → Allowed: #{e.expected($allowed-values, $options-extra)}';
+                // Resolve options hint
+                $is-truncated: list.length($allowed-values) > e.$EXPECTED_LIMIT;
+                $options-extra: $is-truncated and $ERROR_HINT_TEXT or null;
+                $code-base: '#{s.upper-snake-case(#{$entity-type})}_#{s.upper-snake-case(#{$attribute})}';
+                @return '[#{$code-base}_VALUE] #{s.capitalize(#{$entity-type})} "#{$entity-name}"#{e.path($current-path)}: Invalid value "#{e.received($element)}" → Allowed: #{e.expected($allowed-values, $options-extra)}';
               }
             }
           }
@@ -276,16 +265,17 @@ $_ERROR_LOG: ();
 
   // Validate extra attributes
   @if l.includes(($_VALIDATION_RIGID, $_VALIDATION_STRICT), $mode) {
-    // Format error code
-    $code-base: '#{$entity-type-upp}';
-    $entity-name: $outer-entity-type or
-      $entity-name; // Use parent type label for extra-attribute errors
+    // Use parent type label for extra-attribute errors
+    $entity-name: $outer-entity-type or $entity-name;
 
     @each $attribute, $_ in $entity {
-      // Validate unknown attributes
       @if not map.has-key($schema, $attribute) {
         $current-path: l.push($path, $attribute);
+
         // Format error code
+        $entity-type-upp: s.upper-snake-case(#{$entity-type});
+        $entity-type-cap: s.capitalize(#{$entity-type});
+        $code-base: '#{$entity-type-upp}';
         @if list.length($current-path) > 1 {
           $parent-candidate: list.nth($current-path, -2);
           $parent-upp: s.upper-snake-case(#{$parent-candidate});
@@ -305,11 +295,10 @@ $_ERROR_LOG: ();
     }
   }
 
-  // Return success
   @return null;
 }
 
-// Validates schema structure against metaschema
+// Validate schema structure against metaschema
 @function -validate-schema(
   $schema,
   $entity-type,
@@ -317,7 +306,6 @@ $_ERROR_LOG: ();
   $custom-entry-label: $ERROR_LABEL_FIELD,
   $path: ()
 ) {
-  // Initialize error context
   $origin: $_ERROR_ORIGIN;
 
   // Validate schema fields
@@ -364,6 +352,5 @@ $_ERROR_LOG: ();
     }
   }
 
-  // Return success
   @return null;
 }
