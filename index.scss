@@ -68,7 +68,7 @@ $_ERROR_LOG: ();
 
 // Guard validation mode
 @if not l.includes($_VALIDATION_MODES, $VALIDATION_MODE_SELECTED) {
-  @error 'validate: #{meta.inspect($VALIDATION_MODE_SELECTED)} is not a valid validation mode.';
+  @error 'sass-valid: #{meta.inspect($VALIDATION_MODE_SELECTED)} is not a valid validation mode.';
 }
 
 // PUBLIC API ──────────────────────────────────────────────
