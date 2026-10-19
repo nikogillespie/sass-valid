@@ -20,7 +20,7 @@ All constants are configurable via `@use ... with (...)`:
 
 ```scss
 @use 'sass-valid' as v with (
-  $VALIDATION_MODE: 'strict',
+  $VALIDATE_MODE: 'strict',
   $ERROR_HINT_TEXT: 'Refer to the schema'
 );
 ```
@@ -36,7 +36,7 @@ All constants are configurable via `@use ... with (...)`:
 | `$ERROR_LABEL_ENTRY`        | `'ENTRY'`                         | Default label for collection member keys in error codes            |
 | `$ERROR_LABEL_FIELD`        | `'FIELD'`                         | Default label for schema field keys in error codes                 |
 | `$ERROR_ENTRY_LABELS`       | `('ENTRY', 'FIELD')`              | Allowed values for `$custom-entry-label`                           |
-| `$VALIDATION_MODE`          | `'rigid'`                         | Default validation mode                                            |
+| `$VALIDATE_MODE`            | `'rigid'`                         | Default validation mode                                            |
 
 > **Note:** See the **[Error Message Specification](https://github.com/nikogillespie/sass-error-spec)** for details on how error codes and labels are structured.
 
@@ -64,7 +64,7 @@ Validates an entity map against a schema. The schema is checked against a built-
 | `$entity`             | `Map`            |                             | Entity map to validate                                                         |
 | `$entity-type`        | `String`         | `'entity'`                  | Label for the entity type in error messages                                    |
 | `$entity-name`        | `String`         | `'unnamed'`                 | Label for the entity name in error messages                                    |
-| `$mode`               | `String`         | `$VALIDATION_MODE`          | Validation mode: `'permissive'`, `'rigid'`, or `'strict'`                      |
+| `$mode`               | `String`         | `$VALIDATE_MODE`            | Validation mode: `'permissive'`, `'rigid'`, or `'strict'`                      |
 | `$custom-entry-label` | `String`         | `$ERROR_LABEL_ENTRY`        | Label for entry-level error codes: `'ENTRY'` or `'FIELD'`                      |
 | `$schema-id`          | `String \| Null` | `null`                      | Cache key override; use when the same `$entity-type` maps to different schemas |
 | `$validators`         | `Map`            | `()`                        | Map of validator name strings to Sass function references                      |
@@ -158,7 +158,7 @@ v.validate($schema, ('config': ('theme': 'blue')), 'settings', 'app')
 | `'rigid'`      | Error              | Skipped                     |
 | `'strict'`     | Error              | Error                       |
 
-The default mode is `'rigid'`. Override per-call via `$mode`, or globally via `$VALIDATION_MODE`:
+The default mode is `'rigid'`. Override per-call via `$mode`, or globally via `$VALIDATE_MODE`:
 
 ```scss
 v.validate($schema, $entity, 'person', 'Alice', $mode: 'permissive')  // extra fields allowed
