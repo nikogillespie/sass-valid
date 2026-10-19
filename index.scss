@@ -32,7 +32,7 @@ $_VALIDATION_MODES: (
 );
 
 // Default validation mode
-$VALIDATION_MODE_SELECTED: $_VALIDATION_RIGID !default;
+$VALIDATION_MODE: $_VALIDATION_RIGID !default;
 
 // Entry label identifiers
 $ERROR_LABEL_ENTRY: 'ENTRY' !default; // _ID variant → <id> substitution in error codes
@@ -67,8 +67,8 @@ $_ERROR_LOG: ();
 // GUARDS ──────────────────────────────────────────────────
 
 // Guard validation mode
-@if not l.includes($_VALIDATION_MODES, $VALIDATION_MODE_SELECTED) {
-  @error 'sass-valid: #{meta.inspect($VALIDATION_MODE_SELECTED)} is not a valid validation mode.';
+@if not l.includes($_VALIDATION_MODES, $VALIDATION_MODE) {
+  @error 'sass-valid: #{meta.inspect($VALIDATION_MODE)} is not a valid validation mode.';
 }
 
 // PUBLIC API ──────────────────────────────────────────────
@@ -78,7 +78,7 @@ $_ERROR_LOG: ();
 /// @param {Map} $entity - Entity map to validate
 /// @param {String} $entity-type ['entity'] - Entity type label in error messages
 /// @param {String} $entity-name ['unnamed'] - Entity name label in error messages
-/// @param {String} $mode [$VALIDATION_MODE_SELECTED] - Validation mode: permissive, rigid, or strict
+/// @param {String} $mode [$VALIDATION_MODE] - Validation mode: permissive, rigid, or strict
 /// @param {String} $custom-entry-label [$ERROR_LABEL_ENTRY] - Entry label in error codes
 /// @param {String | Null} $schema-id [null] - Cache key override; use when the same $entity-type maps to different schemas
 /// @param {Map | Null} $validators [null] - Map of validator name strings to Sass function references
@@ -88,7 +88,7 @@ $_ERROR_LOG: ();
   $entity,
   $entity-type: 'entity',
   $entity-name: 'unnamed',
-  $mode: $VALIDATION_MODE_SELECTED,
+  $mode: $VALIDATION_MODE,
   $custom-entry-label: $ERROR_LABEL_ENTRY,
   $schema-id: null,
   $validators: null
