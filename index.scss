@@ -25,21 +25,17 @@ $ERROR_HINT_TEXT: 'See schema for allowed values' !default;
 $_VALIDATE_PERMISSIVE: 'permissive'; // Extra fields allowed; only required fields enforced
 $_VALIDATE_RIGID: 'rigid'; // No extra fields allowed; only required fields enforced
 $_VALIDATE_STRICT: 'strict'; // No extra fields allowed; all fields required
-$_VALIDATE_MODES: (
-  $_VALIDATE_PERMISSIVE,
-  $_VALIDATE_RIGID,
-  $_VALIDATE_STRICT
-);
+$_VALIDATE_MODES: ($_VALIDATE_PERMISSIVE, $_VALIDATE_RIGID, $_VALIDATE_STRICT);
 
 // Default validation mode
 $VALIDATE_MODE: $_VALIDATE_RIGID !default;
 
 // Entry label identifiers
-$ERROR_LABEL_ENTRY: 'ENTRY' !default; // _ID variant → <id> substitution in error codes
+$ERROR_LABEL_ENTRY: 'ENTRY' !default; // In codes such as TOKEN_VALUES_ENTRY_ID_TYPE
 $ERROR_LABEL_FIELD: 'FIELD' !default;
 $ERROR_ENTRY_LABELS: ($ERROR_LABEL_ENTRY, $ERROR_LABEL_FIELD) !default;
 
-// Metaschema definition
+// The rules a schema follows
 // prettier-ignore
 $_SCHEMA_META: (
   $FIELD_REQUIRED: (
@@ -61,28 +57,26 @@ $_SCHEMA_META: (
   ),
 );
 
-// Cache schema results across repeated validate() calls
-$_ERROR_LOG: ();
+$_ERROR_LOG: (); // Each schema's check, kept by entity type or $schema-id
 
 // GUARDS ──────────────────────────────────────────────────
 
-// Guard validation mode
 @if not l.includes($_VALIDATE_MODES, $VALIDATE_MODE) {
   @error 'sass-valid: #{meta.inspect($VALIDATE_MODE)} is not a valid validation mode.';
 }
 
 // PUBLIC API ──────────────────────────────────────────────
 
-/// Validate the $entity map against $schema
-/// @param {Map} $schema - Schema definition map
-/// @param {Map} $entity - Entity map to validate
-/// @param {String} $entity-type ['entity'] - Entity type label in error messages
-/// @param {String} $entity-name ['unnamed'] - Entity name label in error messages
-/// @param {String} $mode [$VALIDATE_MODE] - Validation mode: permissive, rigid, or strict
-/// @param {String} $custom-entry-label [$ERROR_LABEL_ENTRY] - Entry label in error codes
-/// @param {String | Null} $schema-id [null] - Cache key override; use when the same $entity-type maps to different schemas
-/// @param {Map | Null} $validators [null] - Map of validator name strings to Sass function references
-/// @return {Null | String} `null` on success, or an error string on failure
+/// Check $entity against $schema
+/// @param {Map} $schema - The schema
+/// @param {Map} $entity - The map to check
+/// @param {String} $entity-type ['entity'] - Its type, named in messages
+/// @param {String} $entity-name ['unnamed'] - Its name, named in messages
+/// @param {String} $mode [$VALIDATE_MODE] - `permissive`, `rigid` or `strict`
+/// @param {String} $custom-entry-label [$ERROR_LABEL_ENTRY] - The entry label in codes
+/// @param {String | Null} $schema-id [null] - Names the schema, when one type has several
+/// @param {Map | Null} $validators [null] - Validator name → function
+/// @return {Null | String} null, or the message
 @function validate(
   $schema,
   $entity,
@@ -95,7 +89,6 @@ $_ERROR_LOG: ();
 ) {
   $origin: $_ERROR_ORIGIN;
 
-  // Validate inputs
   @if m.type-of($schema) != 'map' {
     @return '[ARGUMENT_SCHEMA_TYPE] Argument "$schema": Incorrect type "#{m.type-of($schema)}" → Expected: map [context: #{$origin}]';
   } @else if m.type-of($entity) != 'map' {
@@ -108,20 +101,15 @@ $_ERROR_LOG: ();
     @return '[ARGUMENT_MODE_VALUE] Argument "$mode": Invalid value "#{e.received($mode)}" → Allowed: #{e.expected($_VALIDATE_MODES)} [context: #{$origin}]';
   } @else if not l.includes($ERROR_ENTRY_LABELS, $custom-entry-label) {
     @return '[ARGUMENT_CUSTOM_ENTRY_LABEL_VALUE] Argument "$custom-entry-label": Invalid value "#{e.received($custom-entry-label)}" → Allowed: #{e.expected($ERROR_ENTRY_LABELS)} [context: #{$origin}]';
-  } @else if
-    $schema-id and
-    (m.type-of($schema-id) != 'string' or m.is-empty($schema-id))
-  {
+  } @else if $schema-id and (m.type-of($schema-id) != 'string' or m.is-empty($schema-id)) {
     @return '[ARGUMENT_SCHEMA_ID_INVALID] Argument "$schema-id": Invalid value → Expected: non-empty string [context: #{$origin}]';
   } @else if $validators and m.type-of($validators) != 'map' {
     @return '[ARGUMENT_VALIDATORS_TYPE] Argument "$validators": Incorrect type "#{m.type-of($validators)}" → Expected: map [context: #{$origin}]';
   }
 
-  // Normalize null validators to empty map
-  $validators: $validators or ();
+  $validators: $validators or (); // null → ()
 
-  // Resolve cache key — $schema-id overrides $entity-type
-  // to avoid collisions when one type maps to many schemas
+  // The schema is checked once per type, or per $schema-id when one type has several
   $cache-key: $schema-id or $entity-type;
   @if not map.has-key($_ERROR_LOG, $cache-key) {
     $error: -validate-schema($schema, $entity-type, $mode) or false;
@@ -133,7 +121,6 @@ $_ERROR_LOG: ();
     @return $error;
   }
 
-  // Validate entity attributes
   @return -validate-entity(
     $schema,
     $entity,
@@ -147,7 +134,7 @@ $_ERROR_LOG: ();
 
 // PRIVATE ─────────────────────────────────────────────────
 
-// Validate entity attributes against schema
+/// Check an entity's attributes against the schema
 @function -validate-entity(
   $schema,
   $entity,
@@ -161,11 +148,9 @@ $_ERROR_LOG: ();
 ) {
   $origin: $_ERROR_ORIGIN;
 
-  // Validate attributes
   @each $attribute, $attribute-rules in $schema {
     $current-path: l.push($path, $attribute);
 
-    // Extract rule values
     $is-required: map.get($attribute-rules, $FIELD_REQUIRED);
     $allowed-types: map.get($attribute-rules, $FIELD_ALLOWED_TYPES);
     $allowed-values: map.get($attribute-rules, $FIELD_ALLOWED_VALUES);
@@ -174,23 +159,20 @@ $_ERROR_LOG: ();
     $entity-has-attribute: map.has-key($entity, $attribute);
 
     @if $mode == $_VALIDATE_STRICT {
+      // Strict: every attribute required
       $is-required: true;
     }
 
-    // Guard missing required attribute
     @if $is-required and not $entity-has-attribute {
+      // Required, missing → TOKEN_TITLE_MISSING
       $code-base: '#{s.upper-snake-case(#{$entity-type})}_#{s.upper-snake-case(#{$attribute})}';
       @return '[#{$code-base}_MISSING] #{s.capitalize(#{$entity-type})} "#{$entity-name}"#{e.path($path)}: Missing attribute "#{$attribute}" → Include "#{$attribute}" with value type: #{e.expected($allowed-types)}';
-    }
-
-    // Validate attribute value
-    @else if $entity-has-attribute {
+    } @else if $entity-has-attribute {
       $attribute-value: map.get($entity, $attribute);
       $is-valid-type: m.is-type($attribute-value, $allowed-types);
       $is-empty-value: m.is-empty($attribute-value) and
         m.is-type($attribute-value, ('string', 'list'));
 
-      // Validate type and emptiness
       @if not $is-valid-type {
         $code-base: '#{s.upper-snake-case(#{$entity-type})}_#{s.upper-snake-case(#{$attribute})}';
         @return '[#{$code-base}_TYPE] #{s.capitalize(#{$entity-type})} "#{$entity-name}"#{e.path($current-path)}: Incorrect type "#{m.type-of($attribute-value)}" → Expected: #{e.expected($allowed-types)}';
@@ -198,7 +180,7 @@ $_ERROR_LOG: ();
         $code-base: '#{s.upper-snake-case(#{$entity-type})}_#{s.upper-snake-case(#{$attribute})}';
         @return '[#{$code-base}_EMPTY] #{s.capitalize(#{$entity-type})} "#{$entity-name}"#{e.path($current-path)}: Empty value → Expected: non-empty #{e.expected($allowed-types)}';
       } @else {
-        // Run validator
+        // A validator: the schema's name → your function, which returns a message or null
         @if $validator {
           @if map.has-key($validators, $validator) {
             $error: meta.call(
@@ -221,12 +203,10 @@ $_ERROR_LOG: ();
           }
         }
 
-        // Validate allowed values
+        // Allowed values: a map is a nested schema; a list, the values allowed
         @if not m.is-empty($allowed-values) {
-          // Recurse into nested schema
-          @if (m.type-of($allowed-values) == 'map') and
-            (m.type-of($attribute-value) == 'map')
-          {
+          $nested: m.type-of($allowed-values) == 'map' and m.type-of($attribute-value) == 'map';
+          @if $nested {
             $nested-error: -validate-entity(
               $schema: $allowed-values,
               $entity: $attribute-value,
@@ -241,16 +221,14 @@ $_ERROR_LOG: ();
             @if $nested-error {
               @return $nested-error;
             }
-          }
-          // Validate flat allowed values
-          @else {
+          } @else {
+            // (a, b) → each element must be a or b
             @if m.type-of($allowed-values) == 'list' {
               $allowed-values: l.flat($allowed-values);
             }
 
             @each $element in $attribute-value {
               @if not l.includes($allowed-values, $element) {
-                // Resolve options hint
                 $is-truncated: list.length($allowed-values) > e.$EXPECTED_LIMIT;
                 $options-extra: $is-truncated and $ERROR_HINT_TEXT or null;
                 $code-base: '#{s.upper-snake-case(#{$entity-type})}_#{s.upper-snake-case(#{$attribute})}';
@@ -263,16 +241,15 @@ $_ERROR_LOG: ();
     }
   }
 
-  // Validate extra attributes
+  // Rigid and strict: an attribute the schema doesn't have is reported
   @if l.includes(($_VALIDATE_RIGID, $_VALIDATE_STRICT), $mode) {
-    // Use parent type label for extra-attribute errors
-    $entity-name: $outer-entity-type or $entity-name;
+    $entity-name: $outer-entity-type or $entity-name; // In a nested schema, the outer type's
 
     @each $attribute, $_ in $entity {
       @if not map.has-key($schema, $attribute) {
         $current-path: l.push($path, $attribute);
 
-        // Format error code
+        // Token, (settings, nope) → TOKEN_SETTINGS
         $entity-type-upp: s.upper-snake-case(#{$entity-type});
         $entity-type-cap: s.capitalize(#{$entity-type});
         $code-base: '#{$entity-type-upp}';
@@ -282,7 +259,6 @@ $_ERROR_LOG: ();
           $code-base: '#{$entity-type-upp}_#{$parent-upp}';
         }
 
-        // Report unknown attribute
         @if not m.is-type($attribute, $VALUE_ID_ALLOWED_TYPES) {
           @return '[#{$code-base}_#{$custom-entry-label}_ID_TYPE] #{$entity-type-cap} "#{$entity-name}"#{e.path($current-path, true)}: Incorrect type "#{m.type-of($attribute)}" → Expected: #{e.expected($VALUE_ID_ALLOWED_TYPES)} [context: mode "#{$mode}"]';
         } @else if m.is-empty($attribute) {
@@ -298,7 +274,7 @@ $_ERROR_LOG: ();
   @return null;
 }
 
-// Validate schema structure against metaschema
+/// Check a schema against the rules a schema follows
 @function -validate-schema(
   $schema,
   $entity-type,
@@ -308,11 +284,9 @@ $_ERROR_LOG: ();
 ) {
   $origin: $_ERROR_ORIGIN;
 
-  // Validate schema fields
   @each $schema-field, $schema-rules in $schema {
     $current-path: l.push($path, $schema-field);
 
-    // Guard schema field
     @if not m.is-type($schema-field, $VALUE_ID_ALLOWED_TYPES) {
       @return '[SCHEMA_#{$custom-entry-label}_ID_TYPE] Schema "#{$entity-type}"#{e.path($current-path, true)}: Incorrect type "#{m.type-of($schema-field)}" → Expected: #{e.expected($VALUE_ID_ALLOWED_TYPES)} [context: #{$origin}]';
     } @else if m.is-empty($schema-field) {
@@ -321,7 +295,7 @@ $_ERROR_LOG: ();
       @return '[SCHEMA_#{s.upper-snake-case(#{$schema-field})}_TYPE] Schema "#{$entity-type}"#{e.path($current-path)}: Incorrect type "#{m.type-of($schema-rules)}" → Expected: map [context: #{$origin}]';
     }
 
-    // Validate field rules
+    // Each field's rules, checked like an entity
     $error: -validate-entity(
       $schema: $_SCHEMA_META,
       $entity: $schema-rules,
@@ -336,7 +310,7 @@ $_ERROR_LOG: ();
       @return $error;
     }
 
-    // Recurse into nested schema
+    // A map of allowed values: a nested schema
     $allowed-values: map.get($schema-rules, $FIELD_ALLOWED_VALUES);
     @if m.type-of($allowed-values) == 'map' {
       $nested-error: -validate-schema(
