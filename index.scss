@@ -205,8 +205,9 @@ $_ERROR_LOG: (); // Each schema's check, kept by entity type or $schema-id
 
         // Allowed values: a map is a nested schema; a list, the values allowed
         @if not m.is-empty($allowed-values) {
-          $nested: m.type-of($allowed-values) == 'map' and m.type-of($attribute-value) == 'map';
-          @if $nested {
+          $is-nested: m.type-of($allowed-values) == 'map' and
+            m.type-of($attribute-value) == 'map';
+          @if $is-nested {
             $nested-error: -validate-entity(
               $schema: $allowed-values,
               $entity: $attribute-value,
