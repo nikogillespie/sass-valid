@@ -57,7 +57,7 @@ $_SCHEMA_META: (
   ),
 );
 
-$_ERROR_LOG: (); // Each schema's check, kept by entity type or $schema-id
+$_SCHEMA_CACHE: (); // Each schema's check, kept by entity type or $schema-id
 
 // GUARDS ──────────────────────────────────────────────────
 
@@ -111,12 +111,12 @@ $_ERROR_LOG: (); // Each schema's check, kept by entity type or $schema-id
 
   // The schema is checked once per type, or per $schema-id when one type has several
   $cache-key: $schema-id or $entity-type;
-  @if not map.has-key($_ERROR_LOG, $cache-key) {
+  @if not map.has-key($_SCHEMA_CACHE, $cache-key) {
     $error: -validate-schema($schema, $entity-type, $mode) or false;
-    $_ERROR_LOG: map.set($_ERROR_LOG, $cache-key, $error) !global;
+    $_SCHEMA_CACHE: map.set($_SCHEMA_CACHE, $cache-key, $error) !global;
   }
 
-  $error: map.get($_ERROR_LOG, $cache-key);
+  $error: map.get($_SCHEMA_CACHE, $cache-key);
   @if $error {
     @return $error;
   }
