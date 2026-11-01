@@ -166,7 +166,7 @@ $_ERROR_LOG: (); // Each schema's check, kept by entity type or $schema-id
     @if $is-required and not $entity-has-attribute {
       // Required, missing → TOKEN_TITLE_MISSING
       $code-base: '#{s.upper-snake-case(#{$entity-type})}_#{s.upper-snake-case(#{$attribute})}';
-      @return '[#{$code-base}_MISSING] #{s.capitalize(#{$entity-type})} "#{$entity-name}"#{e.path($path)}: Missing attribute "#{$attribute}" → Include "#{$attribute}" with value type: #{e.expected($allowed-types)}';
+      @return '[#{$code-base}_MISSING] #{s.capitalize(#{$entity-type})} "#{$entity-name}"#{e.path($path)}: Missing attribute "#{$attribute}" → Include "#{$attribute}" with value type: #{e.expected($allowed-types, $limit: null)}';
     } @else if $entity-has-attribute {
       $attribute-value: map.get($entity, $attribute);
       $is-valid-type: m.is-type($attribute-value, $allowed-types);
@@ -175,10 +175,10 @@ $_ERROR_LOG: (); // Each schema's check, kept by entity type or $schema-id
 
       @if not $is-valid-type {
         $code-base: '#{s.upper-snake-case(#{$entity-type})}_#{s.upper-snake-case(#{$attribute})}';
-        @return '[#{$code-base}_TYPE] #{s.capitalize(#{$entity-type})} "#{$entity-name}"#{e.path($current-path)}: Incorrect type "#{m.type-of($attribute-value)}" → Expected: #{e.expected($allowed-types)}';
+        @return '[#{$code-base}_TYPE] #{s.capitalize(#{$entity-type})} "#{$entity-name}"#{e.path($current-path)}: Incorrect type "#{m.type-of($attribute-value)}" → Expected: #{e.expected($allowed-types, $limit: null)}';
       } @else if $is-empty-value {
         $code-base: '#{s.upper-snake-case(#{$entity-type})}_#{s.upper-snake-case(#{$attribute})}';
-        @return '[#{$code-base}_EMPTY] #{s.capitalize(#{$entity-type})} "#{$entity-name}"#{e.path($current-path)}: Empty value → Expected: non-empty #{e.expected($allowed-types)}';
+        @return '[#{$code-base}_EMPTY] #{s.capitalize(#{$entity-type})} "#{$entity-name}"#{e.path($current-path)}: Empty value → Expected: non-empty #{e.expected($allowed-types, $limit: null)}';
       } @else {
         // A validator: the schema's name → your function, which returns a message or null
         @if $validator {
@@ -261,9 +261,9 @@ $_ERROR_LOG: (); // Each schema's check, kept by entity type or $schema-id
         }
 
         @if not m.is-type($attribute, $VALUE_ID_ALLOWED_TYPES) {
-          @return '[#{$code-base}_#{$custom-entry-label}_ID_TYPE] #{$entity-type-cap} "#{$entity-name}"#{e.path($current-path, true)}: Incorrect type "#{m.type-of($attribute)}" → Expected: #{e.expected($VALUE_ID_ALLOWED_TYPES)} [context: mode "#{$mode}"]';
+          @return '[#{$code-base}_#{$custom-entry-label}_ID_TYPE] #{$entity-type-cap} "#{$entity-name}"#{e.path($current-path, true)}: Incorrect type "#{m.type-of($attribute)}" → Expected: #{e.expected($VALUE_ID_ALLOWED_TYPES, $limit: null)} [context: mode "#{$mode}"]';
         } @else if m.is-empty($attribute) {
-          @return '[#{$code-base}_#{$custom-entry-label}_ID_EMPTY] #{$entity-type-cap} "#{$entity-name}"#{e.path($current-path, true)}: Empty value → Expected: non-empty #{e.expected($VALUE_ID_ALLOWED_TYPES)} [context: mode "#{$mode}"]';
+          @return '[#{$code-base}_#{$custom-entry-label}_ID_EMPTY] #{$entity-type-cap} "#{$entity-name}"#{e.path($current-path, true)}: Empty value → Expected: non-empty #{e.expected($VALUE_ID_ALLOWED_TYPES, $limit: null)} [context: mode "#{$mode}"]';
         } @else {
           $code-base: '#{$entity-type-upp}_#{s.upper-snake-case(#{$attribute})}';
           @return '[#{$code-base}_UNKNOWN] #{$entity-type-cap} "#{$entity-name}"#{e.path($path)}: Unknown attribute "#{$attribute}" → Remove "#{$attribute}" [context: mode "#{$mode}"]';
@@ -289,9 +289,9 @@ $_ERROR_LOG: (); // Each schema's check, kept by entity type or $schema-id
     $current-path: l.push($path, $schema-field);
 
     @if not m.is-type($schema-field, $VALUE_ID_ALLOWED_TYPES) {
-      @return '[SCHEMA_#{$custom-entry-label}_ID_TYPE] Schema "#{$entity-type}"#{e.path($current-path, true)}: Incorrect type "#{m.type-of($schema-field)}" → Expected: #{e.expected($VALUE_ID_ALLOWED_TYPES)} [context: #{$origin}]';
+      @return '[SCHEMA_#{$custom-entry-label}_ID_TYPE] Schema "#{$entity-type}"#{e.path($current-path, true)}: Incorrect type "#{m.type-of($schema-field)}" → Expected: #{e.expected($VALUE_ID_ALLOWED_TYPES, $limit: null)} [context: #{$origin}]';
     } @else if m.is-empty($schema-field) {
-      @return '[SCHEMA_#{$custom-entry-label}_ID_EMPTY] Schema "#{$entity-type}"#{e.path($current-path, true)}: Empty value → Expected: non-empty #{e.expected($VALUE_ID_ALLOWED_TYPES)} [context: #{$origin}]';
+      @return '[SCHEMA_#{$custom-entry-label}_ID_EMPTY] Schema "#{$entity-type}"#{e.path($current-path, true)}: Empty value → Expected: non-empty #{e.expected($VALUE_ID_ALLOWED_TYPES, $limit: null)} [context: #{$origin}]';
     } @else if m.type-of($schema-rules) != 'map' {
       @return '[SCHEMA_#{s.upper-snake-case(#{$schema-field})}_TYPE] Schema "#{$entity-type}"#{e.path($current-path)}: Incorrect type "#{m.type-of($schema-rules)}" → Expected: map [context: #{$origin}]';
     }
