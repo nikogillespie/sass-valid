@@ -62,7 +62,7 @@ $_SCHEMA_CACHE: (); // Each schema's check, kept by entity type or $schema-id
 // GUARDS ──────────────────────────────────────────────────
 
 @if not l.includes($_VALIDATE_MODES, $VALIDATE_MODE) {
-  @error 'sass-valid: #{meta.inspect($VALIDATE_MODE)} is not a valid validation mode.';
+  @error 'sass-valid: #{meta.inspect($VALIDATE_MODE)} is not a valid validation mode for $VALIDATE_MODE.';
 }
 
 // PUBLIC API ──────────────────────────────────────────────
