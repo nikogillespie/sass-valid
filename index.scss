@@ -199,7 +199,7 @@ $_SCHEMA_CACHE: (); // Each schema's check, kept by entity type or $schema-id
             }
           } @else {
             $path: l.push($current-path, $FIELD_VALIDATOR);
-            @return '[SCHEMA_VALIDATOR_UNRESOLVED] Schema "#{$entity-type}"#{e.path($path)}: Unresolved function "#{$validator}" → Register "#{$validator}" as a validator, or remove it from the schema [context: #{$origin}]';
+            @return '[SCHEMA_VALIDATOR_UNRESOLVED] Schema "#{$entity-type}"#{e.path($path)}: Unresolved function "#{$validator}" → Register "#{$validator}" as a validator or remove it from the schema [context: #{$origin}]';
           }
         }
 
